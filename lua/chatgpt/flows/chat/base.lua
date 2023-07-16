@@ -773,6 +773,12 @@ function Chat:open()
       vim.api.nvim_command("stopinsert")
     end
   end)
+  -- close_n
+  if Config.options.chat.keymaps.close_n then
+    self:map(Config.options.chat.keymaps.close_n, function()
+      self:hide()
+    end, nil, { "n" })
+  end
 
   -- toggle settings
   self:map(Config.options.chat.keymaps.toggle_settings, function()

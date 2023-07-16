@@ -160,6 +160,12 @@ M.edit_with_instructions = function(output_lines, bufnr, selection, ...)
       vim.cmd("q")
     end, { noremap = true })
   end
+  -- close_n
+  if Config.options.edit_with_instructions.keymaps.close_n then
+    instructions_input:map("n", Config.options.edit_with_instructions.keymaps.close_n, function()
+      vim.cmd("q")
+    end, { noremap = true })
+  end
 
   -- toggle settings
   local settings_open = false
