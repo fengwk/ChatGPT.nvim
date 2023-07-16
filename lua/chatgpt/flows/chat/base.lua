@@ -929,6 +929,9 @@ function Chat:toggle()
     self:hide()
   else
     self:show()
+    if vim.fn.mode() == "n" then
+      vim.api.nvim_feedkeys("A", "n", false)
+    end
   end
 end
 
