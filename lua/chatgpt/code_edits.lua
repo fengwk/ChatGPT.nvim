@@ -109,7 +109,9 @@ M.edit_with_instructions = function(output_lines, bufnr, selection, ...)
         output = Utils.split_string_by_line(output_txt_nlfixed)
 
         vim.api.nvim_buf_set_lines(output_window.bufnr, 0, -1, false, output)
-        display_input_suffix(usage.total_tokens)
+        if usage and usage.total_tokens then
+          display_input_suffix(usage.total_tokens)
+        end
       end)
     end),
   })
