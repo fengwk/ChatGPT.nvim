@@ -66,11 +66,84 @@ function M.wrapTextToTable(text, maxLineLength)
   return lines
 end
 
+local function bit_and(a, b)
+  local res = 0
+  local bi = 1
+  while a > 0 and b > 0 do
+    if a % 2 == 1 and b % 2 == 1 then
+      res = res + bi
+    end
+    a = math.floor(a / 2)
+    b = math.floor(b / 2)
+    bi = bi * 2
+  end
+  return res
+end
+
+
+local function utf8_parse(s)
+  local cs = {}
+  local i = 1
+  while i <= #s do
+    local c = string.byte(s:sub(i, i))
+    if bit_and(c, 0b11111100) == 0b11111100 then
+      table.insert(cs, {
+        s = s:sub(i, i + 5),
+        n = 6,
+      })
+      i = i + 6;
+    elseif bit_and(c, 0b11111000) == 0b11111000 then
+      table.insert(cs, {
+        s = s:sub(i, i + 4),
+        n = 5,
+      })
+      i = i + 5;
+    elseif bit_and(c, 0b11110000) == 0b11110000 then
+      table.insert(cs, {
+        s = s:sub(i, i + 3),
+        n = 4,
+      })
+      i = i + 4;
+    elseif bit_and(c, 0b11100000) == 0b11100000 then
+      table.insert(cs, {
+        s = s:sub(i, i + 2),
+        n = 3,
+      })
+      i = i + 3;
+    elseif bit_and(c, 0b11000000) == 0b11000000 then
+      table.insert(cs, {
+        s = s:sub(i, i + 1),
+        n = 2,
+      })
+      i = i + 2;
+    else
+      table.insert(cs, {
+        s = s:sub(i, i),
+        n = 1,
+      })
+      i = i + 1;
+    end
+  end
+  return cs
+end
+
+local function utf8_char_end_col(s, col)
+  local cs = utf8_parse(s)
+  local idx = 1 -- cs的索引
+  local pos = 0 -- 下次要检查的字符开始
+  while pos <= col and idx <= #cs do
+    pos = pos + cs[idx].n
+    idx = idx + 1
+  end
+  return pos - 1
+end
+
 function M.get_visual_lines(bufnr)
   vim.api.nvim_feedkeys(ESC_FEEDKEY, "n", true)
   vim.api.nvim_feedkeys("gv", "x", false)
   vim.api.nvim_feedkeys(ESC_FEEDKEY, "n", true)
 
+  bufnr = bufnr or 0
   local start_row, start_col = unpack(vim.api.nvim_buf_get_mark(bufnr, "<"))
   local end_row, end_col = unpack(vim.api.nvim_buf_get_mark(bufnr, ">"))
   local lines = vim.api.nvim_buf_get_lines(bufnr, start_row - 1, end_row, false)
@@ -84,15 +157,24 @@ function M.get_visual_lines(bufnr)
     end_col = #lines[#lines]
   end
 
-  -- use 1-based indexing and handle selections made in visual line mode (see :help getpos)
-  start_col = start_col + 1
-  end_col = math.min(end_col, #lines[#lines] - 1) + 1
+  -- get the specified buffer code
+  local encoding = vim.api.nvim_buf_get_option(bufnr, 'fileencoding')
+  -- convert to lua index
+  local start_col_idx = start_col + 1
+  local end_col_idx = end_col + 1
+  if encoding == "utf-8" then
+    end_col_idx = utf8_char_end_col(lines[#lines], end_col) + 1
+  end
 
-  -- shorten first/last line according to start_col/end_col
-  lines[#lines] = lines[#lines]:sub(1, end_col)
-  lines[1] = lines[1]:sub(start_col)
+  -- process selections
+  if start_row == end_row then
+    lines[1] = lines[1]:sub(start_col_idx, end_col_idx)
+  else
+    lines[1] = lines[1]:sub(start_col_idx)
+    lines[#lines] = lines[#lines]:sub(1, end_col_idx)
+  end
 
-  return lines, start_row, start_col, end_row, end_col
+  return lines, start_row, start_col_idx, end_row, end_col_idx
 end
 
 function M.count_newlines_at_end(str)
