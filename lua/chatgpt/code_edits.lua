@@ -59,8 +59,6 @@ local namespace_id = vim.api.nvim_create_namespace("ChatGPTNS")
 
 local instructions_input, layout, input_window, output_window, output, timer, filetype, bufnr, extmark_id
 
-local DEFAULT_CHAT_INSTRUCTION = "## Requirements\n\n1. First, you need to have a thorough understanding of the semantics of the instruction.\n2. Then, strictly follow the provided instruction to process the context given in the input.\n3. Finally, output the generated content to the output.\n\n## Case1\n\nInstruction:\n\n```\nFormat the data into a markdown table.\n```\n\nInput:\n\n```\ncol1 col2 col3\n1    2    3\n4    5    6\n```\n\nOutput:\n\n```\n|col1|col2|col3|\n| -- | -- | -- |\n|1   |2   |3   |\n|4   |5   |6   |\n```\n\n## Case2\n\nInstruction:\n\n```\nAdd code comments.\n```\n\nInput:\n\n```\npublic int add(int a, int b) {\n    return a + b;\n}\n```\n\nOutput:\n\n```\n/**\n * Calculate the sum of two numbers\n * @param a int The number to be added\n * @param b int The number to add\n */\npublic int add(int a, int b) {\n    // Calculate the sum of the number to be added and the number to add\n    return a + b;\n}\n```\n\n## Instruction\n\n```\n{{instruction}}\n```\n\n## Input\n\n```{{filetype}}\n{{input}}\n```\n\n## Output\n\n```{{filetype}}\n"
-
 local display_input_suffix = function(suffix)
   if extmark_id then
     vim.api.nvim_buf_del_extmark(instructions_input.bufnr, namespace_id, extmark_id)
@@ -161,36 +159,6 @@ M.edit_with_instructions = function(output_lines, bufnr, selection, ...)
       show_progress()
 
       local input = table.concat(vim.api.nvim_buf_get_lines(input_window.bufnr, 0, -1, false), "\n")
-      -- local model = Settings.params.model
-      -- if model == "text-davinci-edit-001" or model == "code-davinci-edit-001" then
-      --   -- deprecated
-      --   -- https://platform.openai.com/docs/api-reference/edits/create
-      --   local params = vim.tbl_extend("keep", { input = input, instruction = instruction }, Settings.params)
-      --   Api.edits(params, function(output_txt, usage)
-      --     process_edit_result(input, output_txt, usage)
-      --   end)
-      -- else
-      --   -- https://platform.openai.com/docs/api-reference/chat/create
-      --   local instruction_chat = Settings.params.instruction or DEFAULT_CHAT_INSTRUCTION
-      --   local content, _ = instruction_chat:gsub("{{instruction}}", instruction)
-      --   content, _ = content:gsub("{{input}}", input)
-      --   local ft = vim.api.nvim_buf_get_option(bufnr, "filetype") or ""
-      --   content, _ = content:gsub("{{filetype}}", ft)
-      --   local instruction_message = {
-      --     role = "user",
-      --     content = content
-      --   }
-      --   local params = {}
-      --   for k, v in pairs(Settings.params) do
-      --       if k ~= "instruction" then
-      --           params[k] = v
-      --       end
-      --   end
-      --   params.messages = { instruction_message }
-      --   Api.chat_completions(params, function(output_txt, usage)
-      --     process_edit_result(input, output_txt, usage)
-      --   end)
-      -- end
       local messages = build_edit_messages(input, instruction)
       local function_params = use_functions_for_edits and EDIT_FUNCTION_ARGUMENTS or {}
       local params = vim.tbl_extend("keep", { messages = messages }, Settings.params, function_params)
