@@ -28,6 +28,10 @@ The OpenAI API key can be provided in one of the following two ways:
    an executable that returns the API key via stdout.
 1. Setting it via an environment variable called `$OPENAI_API_KEY`.
 
+Custom OpenAI API host with the configuration option `api_host_cmd` or
+environment variable called `$OPENAI_API_HOST`. It's useful if you can't access
+OpenAI directly
+
 ```lua
 -- Packer
 use({
@@ -109,6 +113,7 @@ use({
         toggle_settings = "<C-o>",
         toggle_message_role = "<C-r>",
         toggle_system_role_open = "<C-s>",
+        stop_generating = "<C-x>",
       },
     },
     popup_layout = {
@@ -170,6 +175,7 @@ use({
       },
       submit = "<C-Enter>",
       submit_n = "<Enter>",
+      max_visible_lines = 20
     },
     settings_window = {
       border = {
@@ -249,7 +255,7 @@ model.
 ![preview image](https://github.com/jackMort/ChatGPT.nvim/blob/media/preview-3.png?raw=true)
 
 #### `ChatGPTEditWithInstructions`
-`ChatGPTEditWithInstructions` command which opens interactive window to edit selected text or whole window using the `code-davinci-edit-002` model (GPT 3.5 fine-tuned for coding).
+`ChatGPTEditWithInstructions` command which opens interactive window to edit selected text or whole window using the `code-davinci-edit-001` model (GPT 3.5 fine-tuned for coding).
 
 You can map it using the Lua API, e.g. using `which-key.nvim`:
 ```lua
@@ -318,7 +324,7 @@ An example of custom action may look like this: (`#` marks comments)
   }
 }
 ```
-The `edit` strategy consists in showing the output side by side with the iput and
+The `edit` strategy consists in showing the output side by side with the input and
 available for further editing requests.
 For now, `edit` strategy is implemented for `chat` type only.
 
@@ -333,7 +339,7 @@ keybindings are available:
 - `<C-y>` [Both] to copy/yank last answer.
 - `<C-o>` [Both] Toggle settings window.
 - `<Tab>` [Both] Cycle over windows.
-- `<C-m>` [Chat] Cycle over modes (center, stick to right).
+- `<C-f>` [Chat] Cycle over modes (center, stick to right).
 - `<C-c>` [Both] to close chat window.
 - `<C-u>` [Chat] scroll up chat window.
 - `<C-d>` [Chat] scroll down chat window.
@@ -348,5 +354,27 @@ keybindings are available:
 
 When the setting window is opened (with `<C-o>`), settings can be modified by
 pressing `Enter` on the related config. Settings are saved across sections
+
+### Whichkey plugin mappings
+Add these to your [whichkey](https://github.com/folke/which-key.nvim) plugin mappings for convenient binds
+
+```lua
+c = {
+  name = "ChatGPT",
+    c = { "<cmd>ChatGPT<CR>", "ChatGPT" },
+    e = { "<cmd>ChatGPTEditWithInstruction<CR>", "Edit with instruction", mode = { "n", "v" } },
+    g = { "<cmd>ChatGPTRun grammar_correction<CR>", "Grammar Correction", mode = { "n", "v" } },
+    t = { "<cmd>ChatGPTRun translate<CR>", "Translate", mode = { "n", "v" } },
+    k = { "<cmd>ChatGPTRun keywords<CR>", "Keywords", mode = { "n", "v" } },
+    d = { "<cmd>ChatGPTRun docstring<CR>", "Docstring", mode = { "n", "v" } },
+    a = { "<cmd>ChatGPTRun add_tests<CR>", "Add Tests", mode = { "n", "v" } },
+    o = { "<cmd>ChatGPTRun optimize_code<CR>", "Optimize Code", mode = { "n", "v" } },
+    s = { "<cmd>ChatGPTRun summarize<CR>", "Summarize", mode = { "n", "v" } },
+    f = { "<cmd>ChatGPTRun fix_bugs<CR>", "Fix Bugs", mode = { "n", "v" } },
+    x = { "<cmd>ChatGPTRun explain_code<CR>", "Explain Code", mode = { "n", "v" } },
+    r = { "<cmd>ChatGPTRun roxygen_edit<CR>", "Roxygen Edit", mode = { "n", "v" } },
+    l = { "<cmd>ChatGPTRun code_readability_analysis<CR>", "Code Readability Analysis", mode = { "n", "v" } },
+  },
+```
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/jackMort)

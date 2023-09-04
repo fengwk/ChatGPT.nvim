@@ -60,6 +60,7 @@ function M.defaults()
         toggle_settings = "<C-o>",
         toggle_message_role = "<C-r>",
         toggle_system_role_open = "<C-s>",
+        stop_generating = "<C-x>",
       },
     },
     popup_layout = {
@@ -121,6 +122,7 @@ function M.defaults()
       },
       submit = "<C-Enter>",
       submit_n = "<Enter>",
+      max_visible_lines = 20,
     },
     settings_window = {
       border = {
@@ -143,11 +145,14 @@ function M.defaults()
       n = 1,
     },
     openai_edit_params = {
-      model = "code-davinci-edit-001",
+      model = "gpt-3.5-turbo",
+      frequency_penalty = 0,
+      presence_penalty = 0,
       temperature = 0,
       top_p = 1,
       n = 1,
     },
+    use_openai_functions_for_edits = false,
     actions_paths = {},
     show_quickfixes_cmd = "Trouble quickfix",
     predefined_chat_gpt_prompts = "https://raw.githubusercontent.com/f/awesome-chatgpt-prompts/main/prompts.csv",

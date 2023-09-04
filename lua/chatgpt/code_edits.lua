@@ -10,6 +10,51 @@ local Utils = require("chatgpt.utils")
 local Spinner = require("chatgpt.spinner")
 local Settings = require("chatgpt.settings")
 
+local EDIT_FUNCTION_ARGUMENTS = {
+  function_call = {
+    name = "apply_code_changes",
+  },
+  functions = {
+    {
+      name = "apply_code_changes",
+      description = "Apply changes to the provided code based on the provided instructions, and briefly describe the edits.",
+      parameters = {
+        type = "object",
+        properties = {
+          changed_code = {
+            type = "string",
+            description = "The changed code.",
+          },
+          applied_changes = {
+            type = "string",
+            description = "Brief descriptions of the edits applied to the original code, formatted as a bullet list.",
+          },
+        },
+      },
+      required = { "changed_code", "applied_changes" },
+    },
+  },
+}
+
+-- https://openai.com/blog/gpt-4-api-general-availability
+local build_edit_messages = function(input, instructions)
+  local messages = {
+    {
+      role = "system",
+      content = "Apply the changes requested by the user to the code. Output ONLY the changed code and a brief description of the edits. DO NOT wrap the code in a formatting block. DO NOT provide other text or explanation.",
+    },
+    {
+      role = "user",
+      content = input,
+    },
+    {
+      role = "user",
+      content = instructions,
+    },
+  }
+  return messages
+end
+
 local namespace_id = vim.api.nvim_create_namespace("ChatGPTNS")
 
 local instructions_input, layout, input_window, output_window, output, timer, filetype, bufnr, extmark_id
@@ -99,6 +144,7 @@ M.edit_with_instructions = function(output_lines, bufnr, selection, ...)
     visual_lines, start_row, start_col, end_row, end_col = unpack(selection)
   end
   local openai_params = Config.options.openai_edit_params
+  local use_functions_for_edits = Config.options.use_openai_functions_for_edits
   local settings_panel = Settings.get_settings_panel("edits", openai_params)
   input_window = Popup(Config.options.popup_window)
   output_window = Popup(Config.options.popup_window)
@@ -115,36 +161,57 @@ M.edit_with_instructions = function(output_lines, bufnr, selection, ...)
       show_progress()
 
       local input = table.concat(vim.api.nvim_buf_get_lines(input_window.bufnr, 0, -1, false), "\n")
-      local model = Settings.params.model
-      if model == "text-davinci-edit-001" or model == "code-davinci-edit-001" then
-        -- deprecated
-        -- https://platform.openai.com/docs/api-reference/edits/create
-        local params = vim.tbl_extend("keep", { input = input, instruction = instruction }, Settings.params)
-        Api.edits(params, function(output_txt, usage)
-          process_edit_result(input, output_txt, usage)
-        end)
-      else
-        -- https://platform.openai.com/docs/api-reference/chat/create
-        local instruction_chat = Settings.params.instruction or DEFAULT_CHAT_INSTRUCTION
-        local content, _ = instruction_chat:gsub("{{instruction}}", instruction)
-        content, _ = content:gsub("{{input}}", input)
-        local ft = vim.api.nvim_buf_get_option(bufnr, "filetype") or ""
-        content, _ = content:gsub("{{filetype}}", ft)
-        local instruction_message = {
-          role = "user",
-          content = content
-        }
-        local params = {}
-        for k, v in pairs(Settings.params) do
-            if k ~= "instruction" then
-                params[k] = v
-            end
+      -- local model = Settings.params.model
+      -- if model == "text-davinci-edit-001" or model == "code-davinci-edit-001" then
+      --   -- deprecated
+      --   -- https://platform.openai.com/docs/api-reference/edits/create
+      --   local params = vim.tbl_extend("keep", { input = input, instruction = instruction }, Settings.params)
+      --   Api.edits(params, function(output_txt, usage)
+      --     process_edit_result(input, output_txt, usage)
+      --   end)
+      -- else
+      --   -- https://platform.openai.com/docs/api-reference/chat/create
+      --   local instruction_chat = Settings.params.instruction or DEFAULT_CHAT_INSTRUCTION
+      --   local content, _ = instruction_chat:gsub("{{instruction}}", instruction)
+      --   content, _ = content:gsub("{{input}}", input)
+      --   local ft = vim.api.nvim_buf_get_option(bufnr, "filetype") or ""
+      --   content, _ = content:gsub("{{filetype}}", ft)
+      --   local instruction_message = {
+      --     role = "user",
+      --     content = content
+      --   }
+      --   local params = {}
+      --   for k, v in pairs(Settings.params) do
+      --       if k ~= "instruction" then
+      --           params[k] = v
+      --       end
+      --   end
+      --   params.messages = { instruction_message }
+      --   Api.chat_completions(params, function(output_txt, usage)
+      --     process_edit_result(input, output_txt, usage)
+      --   end)
+      -- end
+      local messages = build_edit_messages(input, instruction)
+      local function_params = use_functions_for_edits and EDIT_FUNCTION_ARGUMENTS or {}
+      local params = vim.tbl_extend("keep", { messages = messages }, Settings.params, function_params)
+      Api.edits(params, function(response, usage)
+        hide_progress()
+        local nlcount = Utils.count_newlines_at_end(input)
+        local output_txt = response
+        if use_functions_for_edits then
+          output_txt = Utils.match_indentation(input, response.changed_code)
+          if response.applied_changes then
+            vim.notify(response.applied_changes, vim.log.levels.INFO)
+          end
         end
-        params.messages = { instruction_message }
-        Api.chat_completions(params, function(output_txt, usage)
-          process_edit_result(input, output_txt, usage)
-        end)
-      end
+        local output_txt_nlfixed = Utils.replace_newlines_at_end(output_txt, nlcount)
+        output = Utils.split_string_by_line(output_txt_nlfixed)
+
+        vim.api.nvim_buf_set_lines(output_window.bufnr, 0, -1, false, output)
+        if usage then
+          display_input_suffix(usage.total_tokens)
+        end
+      end)
     end),
   })
 
