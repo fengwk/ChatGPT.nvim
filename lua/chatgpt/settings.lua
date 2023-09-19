@@ -41,35 +41,9 @@ local function write_virtual_text(bufnr, ns, line, chunks, mode)
   end
 end
 
-M.read_config = function()
-  local home = os.getenv("HOME") or os.getenv("USERPROFILE")
-  local file = io.open(home .. "/" .. ".chatgpt-" .. M.type .. "-params.json", "rb")
-  if not file then
-    return nil
-  end
-
-  local jsonString = file:read("*a")
-  file:close()
-
-  return vim.json.decode(jsonString)
-end
-
-M.write_config = function(config)
-  local home = os.getenv("HOME") or os.getenv("USERPROFILE")
-  local file, err = io.open(home .. "/" .. ".chatgpt-" .. M.type .. "-params.json", "w")
-  if file ~= nil then
-    local json_string = vim.json.encode(config)
-    file:write(json_string)
-    file:close()
-  else
-    vim.notify("Cannot save settings: " .. err, vim.log.levels.ERROR)
-  end
-end
-
 M.get_settings_panel = function(type, default_params)
   M.type = type
-  local custom_params = M.read_config()
-  M.params = vim.tbl_deep_extend("force", {}, default_params, custom_params or {})
+  M.params = default_params
 
   M.panel = Popup(Config.options.settings_window)
 
@@ -123,7 +97,6 @@ M.get_settings_panel = function(type, default_params)
         0,
         { virt_text = vt, virt_text_pos = "overlay" }
       )
-      M.write_config(M.params)
     end)
   end, {})
 
