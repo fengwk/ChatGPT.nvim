@@ -189,12 +189,16 @@ local function loadConfigFromCommand(command, optionName, callback, defaultValue
     :start()
 end
 
-local function loadConfigFromEnv(envName, configName)
+local function loadConfigFromEnv(envName, configName, callback)
   local variable = os.getenv(envName)
   if not variable then
     return
   end
-  Api[configName] = variable:gsub("%s+$", "")
+  local value = variable:gsub("%s+$", "")
+  Api[configName] = value
+  if callback then
+    callback(value)
+  end
 end
 
 local function loadApiHost(envName, configName, optionName, callback, defaultValue)
@@ -211,7 +215,7 @@ local function loadApiHost(envName, configName, optionName, callback, defaultVal
 end
 
 local function loadApiKey(envName, configName, optionName, callback, defaultValue)
-  loadConfigFromEnv(envName, configName)
+  loadConfigFromEnv(envName, configName, callback)
   if not Api[configName] then
     if Config.options[optionName] ~= nil and Config.options[optionName] ~= "" then
       loadConfigFromCommand(Config.options[optionName], optionName, callback, defaultValue)
@@ -257,15 +261,14 @@ function Api.setup()
 
   loadApiKey("OPENAI_API_KEY", "OPENAI_API_KEY", "api_key_cmd", function(value)
     Api.OPENAI_API_KEY = value
+    loadConfigFromEnv("OPENAI_API_TYPE", "OPENAI_API_TYPE")
+    if Api["OPENAI_API_TYPE"] == "azure" then
+      loadAzureConfigs()
+      Api.AUTHORIZATION_HEADER = "api-key: " .. Api.OPENAI_API_KEY
+    else
+      Api.AUTHORIZATION_HEADER = "Authorization: Bearer " .. Api.OPENAI_API_KEY
+    end
   end)
-
-  loadConfigFromEnv("OPENAI_API_TYPE", "OPENAI_API_TYPE")
-  if Api["OPENAI_API_TYPE"] == "azure" then
-    loadAzureConfigs()
-    Api.AUTHORIZATION_HEADER = "api-key: " .. Api.OPENAI_API_KEY
-  else
-    Api.AUTHORIZATION_HEADER = "Authorization: Bearer " .. Api.OPENAI_API_KEY
-  end
 end
 
 function Api.exec(cmd, args, on_stdout_chunk, on_complete, should_stop, on_stop)
