@@ -6,7 +6,6 @@ local ChatInput = require("chatgpt.input")
 local Api = require("chatgpt.api")
 local Config = require("chatgpt.config")
 local Settings = require("chatgpt.settings")
-local Help = require("chatgpt.help")
 local Sessions = require("chatgpt.flows.chat.sessions")
 local Utils = require("chatgpt.utils")
 local Signs = require("chatgpt.signs")
@@ -36,9 +35,7 @@ function Chat:init()
   self.chat_input = nil
   self.chat_window = nil
   self.sessions_panel = nil
-  self.open_extra_panels = {} -- track open panels
   self.settings_panel = nil
-  self.help_panel = nil
   self.system_role_panel = nil
 
   -- UI OPEN INDICATORS
@@ -609,14 +606,7 @@ end
 
 function Chat:map(keys, fn, windows, modes)
   if windows == nil or next(windows) == nil then
-    windows = {
-      self.help_panel,
-      self.settings_panel,
-      self.sessions_panel,
-      self.system_role_panel,
-      self.chat_input,
-      self.chat_window,
-    }
+    windows = { self.settings_panel, self.sessions_panel, self.system_role_panel, self.chat_input, self.chat_window }
   end
 
   if modes == nil or next(modes) == nil then
@@ -659,7 +649,7 @@ function Chat:get_layout_params()
   local starting_row = tabline_height == 0 and 0 or 1
 
   local width = Utils.calculate_percentage_width(Config.options.popup_layout.right.width)
-  if #self.open_extra_panels > 0 then
+  if self.settings_open then
     width = width + 40
   end
 
@@ -699,20 +689,7 @@ function Chat:get_layout_params()
     Layout.Box(self.chat_input, { size = (self.chat_input.border._.style == "none" and 0 or 2) + self.prompt_lines }),
   }, { dir = "col" })
 
-  if #self.open_extra_panels > 0 then
-    local extra_boxes = function()
-      local box_size = (100 / #self.open_extra_panels) .. "%"
-      local boxes = {}
-      for i, panel in ipairs(self.open_extra_panels) do
-        -- for the last panel, make it grow to fill the remaining space
-        if i == #self.open_extra_panels then
-          table.insert(boxes, Layout.Box(panel, { grow = 1 }))
-        else
-          table.insert(boxes, Layout.Box(panel, { size = box_size }))
-        end
-      end
-      return Layout.Box(boxes, { dir = "col", size = 40 })
-    end
+  if self.settings_open then
     box = Layout.Box({
       Layout.Box({
         left_layout,
@@ -721,7 +698,10 @@ function Chat:get_layout_params()
           { size = (self.chat_input.border._.style == "none" and 0 or 2) + self.prompt_lines }
         ),
       }, { dir = "col", grow = 1 }),
-      extra_boxes(),
+      Layout.Box({
+        Layout.Box(self.settings_panel, { size = "30%" }),
+        Layout.Box(self.sessions_panel, { grow = 1 }),
+      }, { dir = "col", size = 40 }),
     }, { dir = "row" })
   end
 
@@ -730,7 +710,6 @@ end
 
 function Chat:open()
   self.settings_panel = Settings.get_settings_panel("chat_completions", self.params)
-  self.help_panel = Help.get_help_panel("chat")
   self.sessions_panel = Sessions.get_panel(function(session)
     self:set_session(session)
   end)
@@ -842,83 +821,35 @@ function Chat:open()
     end, nil, { "n" })
   end
 
-  local function inTable(tbl, item)
-    for key, value in pairs(tbl) do
-      if value == item then
-        return key
-      end
-    end
-    return false
-  end
-
   -- toggle settings
   self:map(Config.options.chat.keymaps.toggle_settings, function()
-    local settings_open = inTable(self.open_extra_panels, self.settings_panel)
-    if settings_open then
-      table.remove(self.open_extra_panels, settings_open)
-      settings_open = false
-    else
-      table.insert(self.open_extra_panels, self.settings_panel)
-      settings_open = inTable(self.open_extra_panels, self.settings_panel)
-    end
+    self.settings_open = not self.settings_open
     self:redraw()
 
-    if settings_open then
-      vim.api.nvim_buf_set_option(self.open_extra_panels[settings_open].bufnr, "modifiable", false)
-      vim.api.nvim_win_set_option(self.open_extra_panels[settings_open].winid, "cursorline", true)
+    if self.settings_open then
+      vim.api.nvim_buf_set_option(self.settings_panel.bufnr, "modifiable", false)
+      vim.api.nvim_win_set_option(self.settings_panel.winid, "cursorline", true)
 
-      self:set_active_panel(self.open_extra_panels[settings_open])
+      self:set_active_panel(self.settings_panel)
     else
       self:set_active_panel(self.chat_input)
     end
-  end)
-
-  -- toggle help
-  self:map(Config.options.chat.keymaps.toggle_help, function()
-    local help_open = inTable(self.open_extra_panels, self.help_panel)
-    if help_open then
-      table.remove(self.open_extra_panels, help_open)
-      help_open = false
-    else
-      table.insert(self.open_extra_panels, self.help_panel)
-      help_open = inTable(self.open_extra_panels, self.help_panel)
-    end
-    self:redraw()
-
-    if help_open then
-      vim.api.nvim_buf_set_option(self.open_extra_panels[help_open].bufnr, "modifiable", false)
-      vim.api.nvim_win_set_option(self.open_extra_panels[help_open].winid, "cursorline", true)
-
-      self:set_active_panel(self.help_panel)
-    else
-      self:set_active_panel(self.chat_input)
-    end
-  end)
-
-  -- toggle sessions
-  self:map(Config.options.chat.keymaps.toggle_sessions, function()
-    local sessions_open = inTable(self.open_extra_panels, self.sessions_panel)
-    if sessions_open then
-      table.remove(self.open_extra_panels, sessions_open)
-    else
-      table.insert(self.open_extra_panels, self.sessions_panel)
-    end
-    self:redraw()
   end)
 
   -- new session
   self:map(Config.options.chat.keymaps.new_session, function()
     self:new_session()
     Sessions:refresh()
-  end, { self.settings_panel, self.chat_input, self.help_panel })
+  end, { self.settings_panel, self.chat_input })
 
   -- cycle panes
   self:map(Config.options.chat.keymaps.cycle_windows, function()
-    local in_table = inTable(self.open_extra_panels, self.active_panel)
     if not self.active_panel then
       self:set_active_panel(self.chat_input)
     end
-    if self.active_panel == self.chat_input then
+    if self.active_panel == self.settings_panel then
+      self:set_active_panel(self.sessions_panel)
+    elseif self.active_panel == self.chat_input then
       if self.system_role_open then
         self:set_active_panel(self.system_role_panel)
       else
@@ -926,19 +857,8 @@ function Chat:open()
       end
     elseif self.active_panel == self.system_role_panel then
       self:set_active_panel(self.chat_window)
-    elseif self.active_panel == self.chat_window then
-      if #self.open_extra_panels > 0 then
-        self:set_active_panel(self.open_extra_panels[1])
-      else
-        self:set_active_panel(self.chat_input)
-      end
-    elseif in_table then
-      local next_index = (in_table + 1) % (#self.open_extra_panels + 1)
-      if next_index == 0 then
-        self:set_active_panel(self.chat_input)
-      else
-        self:set_active_panel(self.open_extra_panels[next_index])
-      end
+    elseif self.active_panel == self.chat_window and self.settings_open == true then
+      self:set_active_panel(self.settings_panel)
     else
       self:set_active_panel(self.chat_input)
     end

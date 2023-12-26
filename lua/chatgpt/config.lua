@@ -18,7 +18,6 @@ function M.defaults()
         accept = "<C-y>",
         toggle_diff = "<C-d>",
         toggle_settings = "<C-o>",
-        toggle_help = "<C-h>",
         cycle_windows = "<Tab>",
         use_output_as_input = "<C-i>",
       },
@@ -64,8 +63,6 @@ function M.defaults()
         edit_message = "e",
         delete_message = "d",
         toggle_settings = "<C-o>",
-        toggle_sessions = "<C-p>",
-        toggle_help = "<C-h>",
         toggle_message_role = "<C-r>",
         toggle_system_role_open = "<C-s>",
         stop_generating = "<C-x>",
@@ -144,18 +141,6 @@ function M.defaults()
         winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
       },
     },
-    help_window = {
-      setting_sign = "  ",
-      border = {
-        style = "rounded",
-        text = {
-          top = " Help ",
-        },
-      },
-      win_options = {
-        winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
-      },
-    },
     openai_params = {
       model = "gpt-3.5-turbo",
       frequency_penalty = 0,
@@ -177,10 +162,6 @@ function M.defaults()
     actions_paths = {},
     show_quickfixes_cmd = "Trouble quickfix",
     predefined_chat_gpt_prompts = "https://raw.githubusercontent.com/f/awesome-chatgpt-prompts/main/prompts.csv",
-    highlights = {
-      help_key = "@symbol",
-      help_description = "@comment",
-    },
   }
   return defaults
 end
